@@ -1,9 +1,9 @@
 var express = require('express');
 var router = express.Router();
 var fs = require('fs');
-var template = require('../lib/template1.js');
+var template = require('../lib/template.js');
+var auth = require('../lib/auth.js');
 var path = require('path');
-
 
 //CREATE Method is GET 
 router.get('/create', function(request, response){
@@ -21,7 +21,7 @@ router.get('/create', function(request, response){
 
         </form>
     
-    `,'');
+    `,'',auth.StatusUI(request,response));
     response.send(html);
     
 });
@@ -33,7 +33,6 @@ router.post('/create_process', function (request, response) {
        var description = post.description;
        
        fs.writeFile(`data/${title}`,description,'utf8',function(err){
-           //response.redirect('/?id=${title}');     
            response.redirect(`/topic/${title}`);     
        });
 }); 
@@ -64,9 +63,9 @@ router.get('/update/:pageId', function(request, response){
             `
             <a href="/topic/create">create</a> 
             <a href="/topic/update/${title}">update</a>
-
-            
             `
+            ,
+            auth.StatusUI(request,response)
         );
         response.send(html);
         });
@@ -95,29 +94,52 @@ router.post('/delete_process', function (request, response){
     });
 }); 
 
+function loginCheckUI(mode,title,descriton,request,response){
+    
+    if(mode === 'create'){
+        if(auth.IsOwner(request,response)){
+            return create = `<a href="/topic/create">create</a>`;
+        } else {return ''}
+    }
+    if(mode === 'update'){
+        if(auth.IsOwner(request,response)){
+            return update = `<a href="/topic/update/${title}">update</a>`;
+        } else {return ''}
+    }
+    if(mode === 'deletes'){
+        if(auth.IsOwner(request,response)){
+            return deletes = `<form action="/topic/delete_process" method="post">
+                                <input type="hidden" name="id" value="${title}">
+                                <input type="submit" value="delete">
+                            </form>`;
+        } else {return ''}
+    }
+}
 //WEB PAGE load 
 router.get('/:pageId', function(request, response, next){
     //형식은 'user내가 치는거대로+ Id' ex page를 쳤다면 pageId
     var filelist = request.filelist;
     var filteredId = request.params.pageId
-
+    
     fs.readFile(`data/${filteredId}`,'utf8',function(err,descriton){
     if(err)   {
         next(err);
     } else {
         var title = filteredId;
+        var create = loginCheckUI('create','','',request,response);    
+        var update = loginCheckUI('update',title,'',request,response);
+        var deletes = loginCheckUI('deletes',title,'',request,response);
+
         var list = template.list(filelist)
         var html = template.html(title,list,
             `<h2>${title}</h2>${descriton}`,
-            `
-            <a href="/topic/create">create</a>  
-            <a href="/topic/update/${title}">update</a>
             
-            <form action="/topic/delete_process" method="post">
-                <input type="hidden" name="id" value="${title}">
-                <input type="submit" value="delete">
-            </form>
-            `
+            `${create}
+             ${update}
+             ${deletes}
+            
+            `,
+            auth.StatusUI(request,response)
             );
         response.send(html);
     }

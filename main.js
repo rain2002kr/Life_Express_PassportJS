@@ -4,9 +4,10 @@ const express = require('express');
 var bodyParser = require('body-parser');
 var helmet = require('helmet')
 var compression = require('compression');
-// 프로젝트 라우터
-var topicRouter = require('./routes/router')
-var indexRouter = require('./routes/index')
+var session = require('express-session')
+var FileStore = require('session-file-store')(session);
+// 플래시 메시지
+var flash = require('connect-flash');
 
 var fs = require('fs');
 const port = 3000
@@ -16,6 +17,27 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(compression()); //압축을 위한 솔루션
 app.use(helmet()); //보안을 위한 솔루션 
+
+//fileStore 에 session 저장
+
+var fileStoreOptions = {};
+ 
+app.use(session({
+    secret: 'keyboard cat',
+    resave: false,            //기본값으로 세팅 ,추후 필요하면 변경 
+    saveUninitialized: true,  //기본값으로 세팅 ,추후 필요하면 변경 
+    store: new FileStore(fileStoreOptions)
+}));
+
+//flash message 사용 
+app.use(flash());
+var passport = require('./lib/passport')(app);
+
+// 프로젝트 라우터
+var topicRouter = require('./routes/router')
+var authRouter = require('./routes/auth')(passport)
+var indexRouter = require('./routes/index')
+
 
 //미들웨어 만들어 사용하기 
 app.get('*',function(req,res, next){
@@ -27,6 +49,7 @@ app.get('*',function(req,res, next){
 //public 폴더를 정적폴더로 지정 
 app.use(express.static('public'));
 app.use('/topic', topicRouter);
+app.use('/auth', authRouter);
 app.use('/', indexRouter);
 
 
@@ -41,12 +64,7 @@ app.use(function (err, req, res, next) {
     res.status(500).send('Something broke!')
 })
 
+
+
+
 app.listen(port, () => console.log(`Example app listening at http://localhost:${port}`))
-
-
-
-
-/*
-var template = require('./lib/template1.js');
-var qs = require('querystring');
-var path = require('path');*/
